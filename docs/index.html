@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>workflows — Multi-Agent Orchestration for Cursor & Copilot</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --blue: #58a6ff;
+      --purple: #d2a8ff;
+      --orange: #ffa657;
+      --yellow: #e3b341;
+      --red: #f85149;
+      --cyan: #79c0ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* NAV */
+    nav {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    nav .brand { font-weight: 700; font-size: 1.1rem; color: var(--purple); }
+    nav a { color: var(--muted); font-size: 0.9rem; }
+    nav a:hover { color: var(--text); }
+
+    /* HERO */
+    .hero {
+      text-align: center;
+      padding: 5rem 2rem 4rem;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 2rem;
+      padding: 0.3rem 1rem;
+      font-size: 0.8rem;
+      color: var(--purple);
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+    }
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--purple) 0%, var(--blue) 50%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+    .hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      padding: 0.65rem 1.5rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--purple); color: #000; }
+    .btn-secondary { background: var(--bg3); border: 1px solid var(--border); color: var(--text); }
+
+    /* TERMINAL */
+    .terminal {
+      background: #0a0c0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-width: 760px;
+      margin: 3rem auto 0;
+      overflow: hidden;
+    }
+    .terminal-bar {
+      background: var(--bg3);
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.red { background: #ff5f57; }
+    .dot.yellow { background: #febc2e; }
+    .dot.green { background: #28c840; }
+    .terminal-title { margin-left: 0.5rem; color: var(--muted); font-size: 0.8rem; }
+    .terminal-body { padding: 1.5rem 1.5rem; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.85rem; }
+    .terminal-body .prompt { color: var(--green); }
+    .terminal-body .cmd { color: var(--text); }
+    .terminal-body .comment { color: var(--muted); }
+    .terminal-body .output { color: var(--cyan); }
+    .terminal-body .pass { color: var(--green); }
+    .terminal-body .phase { color: var(--yellow); }
+    .terminal-body line { display: block; margin-bottom: 0.3rem; }
+
+    /* SECTION */
+    section {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 4rem 2rem;
+    }
+    section h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    section .sub {
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+    hr.divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* WORKFLOW CARDS */
+    .wf-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .wf-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      transition: border-color 0.15s;
+    }
+    .wf-card:hover { border-color: var(--purple); }
+    .wf-card .wf-name {
+      font-family: monospace;
+      color: var(--purple);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+    .wf-card .wf-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .wf-card .wf-phases {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .phase-chip {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.5rem;
+      font-size: 0.75rem;
+      color: var(--cyan);
+      font-family: monospace;
+    }
+
+    /* FEATURES GRID */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+    .feature .icon { font-size: 2rem; margin-bottom: 0.75rem; }
+    .feature h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+    .feature p { color: var(--muted); font-size: 0.875rem; }
+
+    /* TABLE */
+    table { width: 100%; border-collapse: collapse; }
+    th { background: var(--bg3); text-align: left; padding: 0.6rem 1rem; font-size: 0.85rem; color: var(--muted); border-bottom: 1px solid var(--border); }
+    td { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    tr:last-child td { border-bottom: none; }
+    code { background: var(--bg3); padding: 0.1rem 0.4rem; border-radius: 4px; font-family: monospace; font-size: 0.85em; color: var(--cyan); }
+
+    /* INSTALL STEPS */
+    .steps { counter-reset: step; }
+    .step {
+      display: flex;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .step-num {
+      counter-increment: step;
+      min-width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: var(--purple);
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .step-body h3 { margin-bottom: 0.4rem; }
+    .step-body p { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.5rem; }
+    pre {
+      background: #0a0c0f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    /* BADGES */
+    .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .badge-chip {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.8rem;
+      color: var(--green);
+      font-family: monospace;
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* COMPAT TABLE */
+    .compat-check { color: var(--green); font-size: 1.1rem; }
+    .compat-partial { color: var(--yellow); font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">⚡ workflows</span>
+  <a href="#workflows">Workflows</a>
+  <a href="#install">Install</a>
+  <a href="#cli">CLI</a>
+  <a href="#schema">Schema</a>
+  <a href="https://github.com/codes1gn/workflows" target="_blank">GitHub →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero" style="max-width:100%; padding-bottom:2rem;">
+  <div class="badge">Claude Code Workflows · For Everyone</div>
+  <h1>Multi-Agent Workflows</h1>
+  <p>
+    Bring Claude Code's powerful <code>/deep-research</code>, <code>/code-review</code>,
+    and <code>/bug-sweep</code> to Cursor and GitHub Copilot.
+    16 parallel agents. 1,000 total. YAML definitions. One command.
+  </p>
+  <div class="hero-btns">
+    <a href="https://github.com/codes1gn/workflows" class="btn btn-primary">Get Started →</a>
+    <a href="#workflows" class="btn btn-secondary">Browse Workflows</a>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+      <span class="terminal-title">wf — workflow runner</span>
+    </div>
+    <div class="terminal-body">
+      <line><span class="prompt">$ </span><span class="cmd">wf run deep-research "LLM alignment 2025"</span></line>
+      <line>&nbsp;</line>
+      <line><span class="phase">[wf] Running workflow: deep-research</span></line>
+      <line><span class="phase">[wf] Phases: decompose, search, cross-check, synthesize</span></line>
+      <line>&nbsp;</line>
+      <line><span class="output">[wf] Phase: decompose — 1 agent(s), parallel=False</span></line>
+      <line><span class="pass">     ✓ Decomposed into 6 research angles</span></line>
+      <line>&nbsp;</line>
+      <line><span class="output">[wf] Phase: search — 6 agent(s), parallel=True</span></line>
+      <line><span class="pass">     ✓ Agent 0 done (2.1s)  ✓ Agent 1 done (1.9s)</span></line>
+      <line><span class="pass">     ✓ Agent 2 done (2.3s)  ✓ Agent 3 done (2.0s)</span></line>
+      <line><span class="pass">     ✓ Agent 4 done (1.8s)  ✓ Agent 5 done (2.2s)</span></line>
+      <line>&nbsp;</line>
+      <line><span class="output">[wf] Phase: cross-check — 3 agent(s), parallel=True</span></line>
+      <line><span class="pass">     ✓ Contradictions, gaps, and source credibility verified</span></line>
+      <line>&nbsp;</line>
+      <line><span class="output">[wf] Phase: synthesize — 1 agent(s), parallel=False</span></line>
+      <line><span class="pass">     ✓ Report written (847 words, 12 citations)</span></line>
+      <line>&nbsp;</line>
+      <line><span class="phase">[wf] Workflow 'deep-research' complete. Total agents: 11</span></line>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- FEATURES -->
+<section>
+  <h2>Why workflows?</h2>
+  <p class="sub">Claude Code's multi-agent power — for every AI coding assistant</p>
+  <div class="features">
+    <div class="feature">
+      <div class="icon">⚡</div>
+      <h3>Parallel Execution</h3>
+      <p>Run up to 16 agents simultaneously. Fan out work across agents, collect all results.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📋</div>
+      <h3>YAML Definitions</h3>
+      <p>Simple, readable YAML workflow files. Define phases, agents, and prompt templates.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🤖</div>
+      <h3>Sub-Agent Library</h3>
+      <p>Explore, Plan, Review, and General-purpose agents — ready to use out of the box.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📚</div>
+      <h3>Skill Files</h3>
+      <p>SKILL.md files teach your AI assistant how to use every workflow and command.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🔌</div>
+      <h3>Multi-Platform</h3>
+      <p>Works identically with GitHub Copilot (VS Code) and Cursor IDE.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🔧</div>
+      <h3>Extensible</h3>
+      <p>Create custom workflows with <code>wf create</code>. Define your own sub-agents.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- WORKFLOWS -->
+<section id="workflows">
+  <h2>Built-in Workflows</h2>
+  <p class="sub">5 production-ready workflows, matching Claude Code's built-in repertoire</p>
+  <div class="wf-grid">
+    <div class="wf-card">
+      <div class="wf-name">/deep-research</div>
+      <div class="wf-desc">Fan out searches, adversarial cross-check, comprehensive cited report</div>
+      <div class="wf-phases">
+        <span class="phase-chip">decompose</span>
+        <span class="phase-chip">search ×6 ⚡</span>
+        <span class="phase-chip">cross-check ×3 ⚡</span>
+        <span class="phase-chip">synthesize</span>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-name">/code-review</div>
+      <div class="wf-desc">5-specialist parallel review: security, perf, correctness, style, tests</div>
+      <div class="wf-phases">
+        <span class="phase-chip">index</span>
+        <span class="phase-chip">review ×5 ⚡</span>
+        <span class="phase-chip">triage</span>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-name">/bug-sweep</div>
+      <div class="wf-desc">Whole-codebase parallel bug hunt with reproduction and blast radius</div>
+      <div class="wf-phases">
+        <span class="phase-chip">discover</span>
+        <span class="phase-chip">scan ×6 ⚡</span>
+        <span class="phase-chip">reproduce ×4 ⚡</span>
+        <span class="phase-chip">report</span>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-name">/plan</div>
+      <div class="wf-desc">Multi-angle planning with adversarial challenge phase</div>
+      <div class="wf-phases">
+        <span class="phase-chip">understand</span>
+        <span class="phase-chip">explore ×3 ⚡</span>
+        <span class="phase-chip">challenge ×3 ⚡</span>
+        <span class="phase-chip">synthesize</span>
+      </div>
+    </div>
+    <div class="wf-card">
+      <div class="wf-name">/migration</div>
+      <div class="wf-desc">Incremental codebase migration with parallel execution and verification</div>
+      <div class="wf-phases">
+        <span class="phase-chip">audit</span>
+        <span class="phase-chip">migrate ×6 ⚡</span>
+        <span class="phase-chip">verify ×2 ⚡</span>
+        <span class="phase-chip">report</span>
+      </div>
+    </div>
+    <div class="wf-card" style="border-style:dashed; display:flex; align-items:center; justify-content:center; min-height:140px;">
+      <div style="text-align:center; color:var(--muted);">
+        <div style="font-size:2rem;">+</div>
+        <div style="font-size:0.85rem;">wf create my-workflow</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- INSTALL -->
+<section id="install">
+  <h2>Installation</h2>
+  <p class="sub">Up and running in 3 steps</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Install the CLI</h3>
+        <p>Requires Python 3.9+</p>
+        <pre>git clone https://github.com/codes1gn/workflows
+cd workflows
+pip install -e .</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Install Skills</h3>
+        <p>Copy skill files to your AI assistant's skills directory</p>
+        <pre># GitHub Copilot (VS Code)
+cp -r builtin-skills/* ~/.copilot/skills/
+cp SKILL.md ~/.copilot/skills/workflows/
+
+# Cursor IDE
+cp -r builtin-skills/* ~/.cursor/skills/
+cp SKILL.md ~/.cursor/skills/workflows/</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Set API Key (for real agents)</h3>
+        <p>Without a key, the harness runs in fast simulation mode</p>
+        <pre>export ANTHROPIC_API_KEY=sk-ant-...
+# or
+export OPENAI_API_KEY=sk-...</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- CLI -->
+<section id="cli">
+  <h2>CLI Reference</h2>
+  <p class="sub">The <code>wf</code> command — your workflow orchestrator</p>
+  <table>
+    <thead>
+      <tr><th>Command</th><th>Description</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>wf run &lt;name&gt; [query]</code></td><td>Execute a workflow</td><td><code>wf run deep-research "LLM 2025"</code></td></tr>
+      <tr><td><code>wf list</code></td><td>List available workflows</td><td><code>wf list</code></td></tr>
+      <tr><td><code>wf status</code></td><td>Show last run status</td><td><code>wf status</code></td></tr>
+      <tr><td><code>wf create &lt;name&gt;</code></td><td>Scaffold new workflow</td><td><code>wf create pr-review</code></td></tr>
+      <tr><td><code>--dry-run</code></td><td>Show plan, no agents</td><td><code>wf run plan --dry-run "goal"</code></td></tr>
+      <tr><td><code>--var K=V</code></td><td>Set template variables</td><td><code>wf run code-review --var path=src/</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- SCHEMA -->
+<section id="schema">
+  <h2>Workflow YAML Schema</h2>
+  <p class="sub">Define any multi-agent workflow in a simple YAML file</p>
+  <pre>name: my-workflow
+description: What it does
+version: 1.0.0
+max_parallel_agents: 8   # hard cap: 16
+max_total_agents: 100    # hard cap: 1000
+
+phases:
+  - name: research
+    agents: 6
+    parallel: true
+    prompt_template: |
+      Query: {{query}}
+      Agent {{agent_index}}: research angle {{agent_index}}
+
+  - name: report
+    agents: 1
+    depends_on: [research]
+    prompt_template: |
+      Synthesize: {{phases.research.results}}</pre>
+</section>
+
+<hr class="divider">
+
+<!-- COMPAT -->
+<section>
+  <h2>Platform Compatibility</h2>
+  <p class="sub">Run identical workflows across Copilot, Cursor, and Claude Code</p>
+  <table>
+    <thead>
+      <tr><th>Feature</th><th>GitHub Copilot</th><th>Cursor IDE</th><th>Claude Code</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Workflow runner</td>
+        <td><span class="compat-check">✓</span> <code>wf</code> CLI</td>
+        <td><span class="compat-check">✓</span> <code>wf</code> CLI</td>
+        <td>Native JS</td>
+      </tr>
+      <tr>
+        <td>Parallel agents</td>
+        <td><span class="compat-check">✓</span> ThreadPoolExecutor</td>
+        <td><span class="compat-check">✓</span> ThreadPoolExecutor</td>
+        <td>Native</td>
+      </tr>
+      <tr>
+        <td>Sub-agents</td>
+        <td><span class="compat-check">✓</span> <code>.github/copilot/agents/</code></td>
+        <td><span class="compat-check">✓</span> <code>.cursor/agents/</code></td>
+        <td><code>.claude/agents/</code></td>
+      </tr>
+      <tr>
+        <td>Max parallel</td>
+        <td>16</td>
+        <td>16</td>
+        <td>16</td>
+      </tr>
+      <tr>
+        <td>Max total</td>
+        <td>1,000</td>
+        <td>1,000</td>
+        <td>1,000</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- TEST -->
+<section>
+  <h2>Tested</h2>
+  <p class="sub">8,400 pattern-based checks — no API keys, no network, pure determinism</p>
+  <div class="badges">
+    <span class="badge-chip">15 scenarios</span>
+    <span class="badge-chip">7 checks/scenario</span>
+    <span class="badge-chip">8 workers</span>
+    <span class="badge-chip">10 runs/worker</span>
+    <span class="badge-chip">8,400 total checks</span>
+    <span class="badge-chip">100% pass rate</span>
+  </div>
+  <pre>$ python tests/run_tests.py
+
+  RESULT: PASS ✅
+  Total checks : 8,400
+  Failures     : 0
+  Pass rate    : 100.0%
+  Duration     : 0.7s</pre>
+</section>
+
+<footer>
+  <p>workflows — MIT License © 2025 codes1gn</p>
+  <p style="margin-top:0.5rem;">
+    <a href="https://github.com/codes1gn/workflows">GitHub</a> ·
+    <a href="https://github.com/codes1gn/agent-handoff">agent-handoff</a> ·
+    <a href="https://github.com/codes1gn/incubate">incubate</a> ·
+    <a href="https://github.com/codes1gn/arxiv-cli">arxiv-cli</a>
+  </p>
+</footer>
+
+</body>
+</html>

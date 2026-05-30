@@ -1,0 +1,72 @@
+name: migration
+description: Safe incremental codebase migration — analyse, plan, parallel migrate, verify
+version: 1.0.0
+max_parallel_agents: 8
+max_total_agents: 150
+
+phases:
+  - name: audit
+    description: Audit the codebase for migration scope
+    agents: 1
+    parallel: false
+    prompt_template: |
+      Migration task: {{query}}
+      Codebase: {{path}}
+
+      Audit the codebase for migration scope:
+      - Identify all files/modules affected
+      - Categorise by migration complexity (easy/medium/hard)
+      - List breaking changes expected
+      - Estimate total effort
+
+      Return JSON:
+      {"easy": [...], "medium": [...], "hard": [...], "breaking_changes": [...], "total_files": N}
+
+  - name: migrate
+    description: Parallel migration of easy and medium files
+    agents: 6
+    parallel: true
+    depends_on: [audit]
+    prompt_template: |
+      Migration task: {{query}}
+      Audit results: {{phases.audit.results}}
+
+      Agent {{agent_index}} handles a partition of files.
+      Apply the migration transformation to each file.
+      Return a diff or updated file content for each file processed.
+
+      Return JSON: {"migrated_files": [{"file": "...", "changes": "...", "notes": "..."}]}
+
+  - name: verify
+    description: Verify all migrations are correct and consistent
+    agents: 2
+    parallel: true
+    depends_on: [migrate]
+    prompt_template: |
+      You are a migration verifier. Review migrated files:
+      {{phases.migrate.results}}
+
+      Agent {{agent_index}} task:
+        0 → Verify correctness (no broken imports, API usage correct)
+        1 → Verify consistency (same patterns applied uniformly)
+
+      Flag any issues and suggest corrections.
+      Return JSON: {"verified": [...], "issues": [...], "corrections": [...]}
+
+  - name: report
+    description: Produce migration completion report
+    agents: 1
+    parallel: false
+    depends_on: [verify]
+    prompt_template: |
+      Produce a migration report.
+
+      Migration: {{query}}
+      Migrated: {{phases.migrate.results}}
+      Verified: {{phases.verify.results}}
+
+      Include:
+      1. Summary (files migrated, success rate)
+      2. Remaining manual steps (hard files)
+      3. Testing recommendations
+      4. Rollback plan if needed

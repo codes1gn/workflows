@@ -1,0 +1,71 @@
+name: deep-research
+description: Fan out web searches across multiple angles, cross-check findings, produce a cited report
+version: 1.0.0
+max_parallel_agents: 8
+max_total_agents: 100
+
+phases:
+  - name: decompose
+    description: Break the research question into distinct angles
+    agents: 1
+    parallel: false
+    prompt_template: |
+      You are a research planner. Given this question: {{query}}
+
+      Generate 6 distinct research angles that cover different dimensions
+      (technical, historical, comparative, critical, practical, future).
+
+      Return ONLY valid JSON:
+      {"angles": ["angle1", "angle2", "angle3", "angle4", "angle5", "angle6"]}
+
+  - name: search
+    description: Fan out searches across all angles in parallel
+    agents: 6
+    parallel: true
+    depends_on: [decompose]
+    prompt_template: |
+      You are a research agent. Your assigned angle index: {{agent_index}}
+
+      Research angles from decompose phase:
+      {{phases.decompose.results}}
+
+      Search the web and summarise findings for your assigned angle.
+      Focus on credible, authoritative sources.
+      Return JSON: {"angle": "...", "findings": [...], "sources": [...]}
+
+  - name: cross-check
+    description: Adversarial cross-check — find contradictions and gaps
+    agents: 3
+    parallel: true
+    depends_on: [search]
+    prompt_template: |
+      You are a critical reviewer. Review these research findings:
+      {{phases.search.results}}
+
+      Agent {{agent_index}} task:
+        0 → Find contradictions between findings
+        1 → Identify missing perspectives or gaps
+        2 → Verify source credibility and flag weak claims
+
+      Return JSON: {"issues": [...], "verified_claims": [...]}
+
+  - name: synthesize
+    description: Produce final comprehensive cited report
+    agents: 1
+    parallel: false
+    depends_on: [cross-check]
+    prompt_template: |
+      You are a research writer. Synthesize all findings into a comprehensive report.
+
+      Search findings: {{phases.search.results}}
+      Cross-check notes: {{phases.cross-check.results}}
+      Original query: {{query}}
+
+      Write a well-structured report with:
+      1. Executive Summary
+      2. Key Findings (with inline citations)
+      3. Conflicting Views
+      4. Confidence Assessment
+      5. References
+
+      Target length: 800-1200 words.

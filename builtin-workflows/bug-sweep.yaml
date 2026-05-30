@@ -1,0 +1,81 @@
+name: bug-sweep
+description: Systematic scan of the entire codebase for bugs, regressions, and technical debt
+version: 1.0.0
+max_parallel_agents: 8
+max_total_agents: 200
+
+phases:
+  - name: discover
+    description: Discover and partition codebase for parallel scanning
+    agents: 1
+    parallel: false
+    prompt_template: |
+      Analyse the codebase at: {{path}}
+
+      Partition the source files into 6 equal groups for parallel scanning.
+      Identify the tech stack and common bug patterns for this language/framework.
+      Return JSON:
+      {
+        "partitions": [["file1", ...], ["file2", ...]],
+        "tech_stack": [...],
+        "known_bug_patterns": [...]
+      }
+
+  - name: scan
+    description: Parallel bug scan across all file partitions
+    agents: 6
+    parallel: true
+    depends_on: [discover]
+    prompt_template: |
+      You are a bug-hunting agent scanning partition {{agent_index}}.
+
+      Codebase discovery: {{phases.discover.results}}
+      Tech stack context: {{path}}
+
+      Hunt for:
+      - Null pointer / undefined access errors
+      - Resource leaks (file handles, connections, memory)
+      - Incorrect error handling or swallowed exceptions
+      - Data type mismatches and implicit coercions
+      - Concurrency bugs (race conditions, deadlocks)
+      - Incorrect API usage (deprecated methods, wrong arguments)
+      - Business logic errors in critical paths
+
+      Return JSON array: [{"file": "...", "line": N, "bug": "...", "severity": "...", "suggested_fix": "..."}]
+
+  - name: reproduce
+    description: Attempt to reproduce or confirm top bugs
+    agents: 4
+    parallel: true
+    depends_on: [scan]
+    prompt_template: |
+      You are a QA engineer. Review bug reports from the scan phase:
+      {{phases.scan.results}}
+
+      Agent {{agent_index}} task:
+        0 → Confirm critical and high-severity bugs with a minimal reproduction
+        1 → Check if any bugs have existing test coverage
+        2 → Assess blast radius — which features are affected?
+        3 → Suggest regression tests to prevent recurrence
+
+      Return JSON: {"confirmed_bugs": [...], "reproduction_steps": [...], "test_suggestions": [...]}
+
+  - name: report
+    description: Produce actionable bug report with fix roadmap
+    agents: 1
+    parallel: false
+    depends_on: [reproduce]
+    prompt_template: |
+      Produce a comprehensive bug sweep report.
+
+      Scan results: {{phases.scan.results}}
+      Reproduction results: {{phases.reproduce.results}}
+
+      Structure:
+      1. Summary (total bugs, severity breakdown)
+      2. Critical bugs — must fix before next release
+      3. High severity — fix in next sprint
+      4. Medium/Low — technical debt backlog
+      5. Suggested regression test plan
+
+      Be concise and actionable.

@@ -1,0 +1,55 @@
+name: code-review
+description: Parallel multi-angle code review — security, performance, correctness, style
+version: 1.0.0
+max_parallel_agents: 6
+max_total_agents: 50
+
+phases:
+  - name: index
+    description: Index the codebase and identify files to review
+    agents: 1
+    parallel: false
+    prompt_template: |
+      Scan the repository at: {{path}}
+
+      List all source files that should be reviewed.
+      Identify the primary language and key architectural patterns.
+      Return JSON: {"files": [...], "language": "...", "patterns": [...]}
+
+  - name: review
+    description: Parallel multi-angle review agents
+    agents: 5
+    parallel: true
+    depends_on: [index]
+    prompt_template: |
+      You are a specialist code reviewer. Files to review: {{path}}
+      Index results: {{phases.index.results}}
+
+      Agent {{agent_index}} specialisation:
+        0 → Security vulnerabilities (injection, auth flaws, secrets, OWASP Top 10)
+        1 → Performance (N+1 queries, memory leaks, algorithmic complexity)
+        2 → Correctness (logic errors, off-by-one, null handling, race conditions)
+        3 → Maintainability (code clarity, dead code, naming, complexity)
+        4 → Test coverage (missing tests, untested edge cases, flaky tests)
+
+      For each issue found, return:
+      {"file": "...", "line": N, "severity": "critical|high|medium|low", "issue": "...", "fix": "..."}
+
+      Return as JSON array.
+
+  - name: triage
+    description: Triage and deduplicate all review findings
+    agents: 1
+    parallel: false
+    depends_on: [review]
+    prompt_template: |
+      You are a lead reviewer. Triage and prioritise all review findings:
+      {{phases.review.results}}
+
+      1. Deduplicate overlapping issues
+      2. Rank by severity and impact
+      3. Group by category
+      4. Identify quick wins vs long-term improvements
+
+      Return a structured review report with an executive summary,
+      actionable top-5 critical fixes, and a full issue list.

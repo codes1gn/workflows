@@ -1,0 +1,80 @@
+name: plan
+description: Multi-angle planning workflow — decompose, explore options, adversarially review, synthesise
+version: 1.0.0
+max_parallel_agents: 4
+max_total_agents: 30
+
+phases:
+  - name: understand
+    description: Deeply understand the goal and constraints
+    agents: 1
+    parallel: false
+    prompt_template: |
+      Goal: {{query}}
+
+      Analyse this goal and produce:
+      1. Clear problem statement (what exactly needs to be done)
+      2. Success criteria (how will we know it's done?)
+      3. Key constraints (time, tech, resources, compatibility)
+      4. Risks and unknowns
+      5. Stakeholders affected
+
+      Return JSON: {"problem": "...", "success_criteria": [...], "constraints": [...], "risks": [...]}
+
+  - name: explore
+    description: Explore multiple solution approaches in parallel
+    agents: 3
+    parallel: true
+    depends_on: [understand]
+    prompt_template: |
+      Goal: {{query}}
+      Analysis: {{phases.understand.results}}
+
+      Agent {{agent_index}} explores a distinct approach:
+        0 → Conventional/safe approach: minimal risk, proven patterns
+        1 → Innovative/ambitious approach: best-case scenario, stretch goals
+        2 → Hybrid/pragmatic approach: balance of speed and quality
+
+      For your assigned approach, detail:
+      - Implementation steps (ordered, numbered)
+      - Tech choices and rationale
+      - Estimated effort (story points or hours)
+      - Trade-offs
+
+      Return JSON: {"approach": "...", "steps": [...], "tech": [...], "effort": "...", "trade_offs": [...]}
+
+  - name: challenge
+    description: Adversarial review — poke holes in each approach
+    agents: 3
+    parallel: true
+    depends_on: [explore]
+    prompt_template: |
+      You are a sceptical architect. Challenge approach {{agent_index}} from the explore phase:
+      {{phases.explore.results}}
+
+      Ask the hardest questions:
+      - What are the failure modes?
+      - What assumptions could be wrong?
+      - What are the hidden costs?
+      - What does the team not know that they need to?
+
+      Return JSON: {"approach_index": {{agent_index}}, "challenges": [...], "show_stoppers": [...], "mitigations": [...]}
+
+  - name: synthesize
+    description: Synthesise into a recommended implementation plan
+    agents: 1
+    parallel: false
+    depends_on: [challenge]
+    prompt_template: |
+      Goal: {{query}}
+      Exploration: {{phases.explore.results}}
+      Challenges: {{phases.challenge.results}}
+
+      Produce a recommended implementation plan:
+      1. Recommended approach (with rationale)
+      2. Phase-by-phase implementation steps
+      3. Key decisions and why
+      4. Risk mitigations
+      5. Definition of Done
+
+      Format as a clear, actionable markdown document.
